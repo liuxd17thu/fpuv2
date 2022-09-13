@@ -3,17 +3,15 @@ package FPUv2
 import chisel3._
 import chisel3.util._
 import fudian.utils._
-import fudian.{FCMA, FCMA_ADD, FCMA_ADD_s1, FCMA_ADD_s2, FMUL, FMULToFADD, FMUL_s1, FMUL_s2, FMUL_s3, RawFloat}
+import fudian.{FCMA_ADD_s1, FCMA_ADD_s2, FMULToFADD, FMUL_s1, FMUL_s2, FMUL_s3, RawFloat}
 import FPUv2.utils._
 import FPUv2.utils.FPUOps._
-import chisel3.DontCare.:=
-import chisel3.internal.naming.chiselName
 
 class MulToAddIO(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Bundle {
   val mulOutput = new FMULToFADD(expWidth, precision)
   val addAnother = UInt((expWidth + precision).W)
   val op = UInt(3.W)
-  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
+  val ctrl = if (hasCtrl) Some(new FPUCtrl) else None
 }
 
 class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
@@ -56,12 +54,12 @@ class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   toAdd.op := S2Reg(S1Reg(io.in.bits.op))
   io.out.bits.result := s3.io.result
   io.out.bits.fflags := s3.io.fflags
-  io.out.bits.ctrl.foreach( _ := toAdd.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
-//  io.out.bits.ctrl.foreach(
-//    _ := S2Reg(S1Reg(
-//      io.in.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl))
-//    ))
-//  )
+  io.out.bits.ctrl.foreach(_ := toAdd.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
+  //  io.out.bits.ctrl.foreach(
+  //    _ := S2Reg(S1Reg(
+  //      io.in.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl))
+  //    ))
+  //  )
 }
 
 class FADDPipe(expWidth: Int, precision: Int) extends FPUPipelineModule(expWidth, precision) {
@@ -119,19 +117,19 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
 
   // 加法器从FMA输入端和乘法器输出端接收数据
   // 乘加和加法同时抵达时，乘加优先级更高: 0->输入来自乘法器输出, 1->输入来自外层输入
-  val toAddArbiter = Module(new Arbiter(new Bundle{
+  val toAddArbiter = Module(new Arbiter(new Bundle {
     val op = UInt(3.W)
-    val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
+    val ctrl = if (hasCtrl) Some(new FPUCtrl) else None
   }, 2))
   toAddArbiter.io.in(1).bits.op := io.in.bits.op.tail(3)
-  toAddArbiter.io.in(1).bits.ctrl.foreach( _ := io.in.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
+  toAddArbiter.io.in(1).bits.ctrl.foreach(_ := io.in.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
   toAddArbiter.io.in(0).bits.op := mulPipe.toAdd.op
-  toAddArbiter.io.in(0).bits.ctrl.foreach( _ := mulPipe.toAdd.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
+  toAddArbiter.io.in(0).bits.ctrl.foreach(_ := mulPipe.toAdd.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
   toAddArbiter.io.in(1).valid := FPUOps.isADDSUB(io.in.bits.op) && io.in.valid
   toAddArbiter.io.in(0).valid := FPUOps.isFMA(mulPipe.toAdd.op) && mulPipe.io.out.valid
 
   addPipe.io.in.bits.op := toAddArbiter.io.out.bits.op
-  addPipe.io.in.bits.ctrl.foreach( _ := toAddArbiter.io.out.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
+  addPipe.io.in.bits.ctrl.foreach(_ := toAddArbiter.io.out.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
   toAddArbiter.io.out.ready := addPipe.io.in.ready
 
   // 加法为乘加让行的同时也会阻塞FMA输入，确保自己之后能够进入流水线
@@ -144,7 +142,7 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   addFIFO.io.enq <> addPipe.io.out
 
   mulPipe.io.out.ready := (toAddArbiter.io.in(0).ready && FPUOps.isFMA(mulPipe.toAdd.op)) ||
-                          (mulFIFO.io.enq.ready && FPUOps.isFMUL(mulPipe.toAdd.op))
+    (mulFIFO.io.enq.ready && FPUOps.isFMUL(mulPipe.toAdd.op))
 
   // FMA输出端从乘法输出端和加法输出端接收数据，加法(乘加)优先级更高
   val toOutArbiter = Module(new Arbiter(new FPUOutput(expWidth, precision), 2))

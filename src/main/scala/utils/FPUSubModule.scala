@@ -31,7 +31,7 @@ class FPUCtrl extends Bundle {
 class FPUOutput(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Bundle {
   val result = Output(UInt((expWidth + precision).W))
   val fflags = Output(UInt(5.W))
-  val ctrl = if(hasCtrl) Some(Output(new FPUCtrl)) else None
+  val ctrl = if (hasCtrl) Some(Output(new FPUCtrl)) else None
 }
 
 abstract class FPUSubModule(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Module
@@ -41,7 +41,7 @@ abstract class FPUSubModule(expWidth: Int, precision: Int, hasCtrl: Boolean = fa
       val op = Input(UInt(3.W))
       val a, b, c = Input(UInt((expWidth + precision).W))
       val rm = Input(UInt(3.W))
-      val ctrl = if(hasCtrl) Some(Input(new FPUCtrl)) else None
+      val ctrl = if (hasCtrl) Some(Input(new FPUCtrl)) else None
     }))
     val out = DecoupledIO(new FPUOutput(expWidth, precision, hasCtrl))
   })
