@@ -16,9 +16,9 @@ class MulToAddIO(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extend
 
 class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   extends FPUPipelineModule(expWidth, precision, hasCtrl) {
-  override def latency: Int = 3
+  override def latency: Int = 2
 
-  val toAdd = new MulToAddIO(expWidth, precision)
+  val toAdd = IO(Output(new MulToAddIO(expWidth, precision)))
 
   val multiplier = Module(new Multiplier(precision + 1, pipeAt = Seq(1)))
   val s1 = Module(new FMUL_s1(expWidth, precision))
@@ -28,7 +28,7 @@ class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   val invProd = io.in.bits.op === FN_FNMADD || io.in.bits.op === FN_FNMSUB
 
   s1.io.a := io.in.bits.a
-  s1.io.b := Mux(invProd, io.in.bits.b, invertSign(io.in.bits.b))
+  s1.io.b := Mux(invProd, invertSign(io.in.bits.b), io.in.bits.b)
   s1.io.rm := io.in.bits.rm
 
   s2.io.in := S1Reg(s1.io.out)
@@ -38,8 +38,8 @@ class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   val raw_a = RawFloat.fromUInt(s1.io.a, s1.expWidth, s1.precision)
   val raw_b = RawFloat.fromUInt(s1.io.b, s1.expWidth, s1.precision)
 
-  multiplier.io.a := raw_a
-  multiplier.io.b := raw_b
+  multiplier.io.a := raw_a.sig
+  multiplier.io.b := raw_b.sig
   multiplier.io.regEnables(0) := regEnable(1)
 
   toAdd.addAnother := S2Reg(S1Reg(io.in.bits.c))
@@ -62,7 +62,8 @@ class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   //  )
 }
 
-class FADDPipe(expWidth: Int, precision: Int) extends FPUPipelineModule(expWidth, precision) {
+class FADDPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
+  extends FPUPipelineModule(expWidth, precision, hasCtrl) {
   override def latency: Int = 2
 
   val len = expWidth + precision
@@ -70,32 +71,32 @@ class FADDPipe(expWidth: Int, precision: Int) extends FPUPipelineModule(expWidth
   val fromMul = IO(Input(new MulToAddIO(expWidth, precision)))
 
   val s1 = Module(new FCMA_ADD_s1(expWidth, 2 * precision, precision))
-  val s2 = Module(new FCMA_ADD_s2(expWidth, precision, precision))
+  val s2 = Module(new FCMA_ADD_s2(expWidth, precision))
 
-  val isFMA = io.in.bits.op(2) === 1.U
-  val s1_isFMA = S1Reg(isFMA)
+  val isFMA = FPUOps.isFMA(io.in.bits.op)
+  //val s1_isFMA = S1Reg(isFMA)
 
-  val s1_mulProd = S1Reg(fromMul.mulOutput)
-  val srcA = S1Reg(io.in.bits.a)
-  val srcB = S1Reg(Mux(isFMA, fromMul.addAnother, io.in.bits.b))
+  //val s1_mulProd = S1Reg(fromMul.mulOutput)
+  val srcA = io.in.bits.a
+  val srcB = Mux(isFMA, fromMul.addAnother, io.in.bits.b)
 
-  val invAdd = io.in.bits.op(0) === 1.U
+  val invAdd = withSUB(io.in.bits.op)
 
-  val add1 = Mux(s1_isFMA,
-    s1_mulProd.fp_prod.asUInt,
+  val add1 = Mux(isFMA,
+    fromMul.mulOutput.fp_prod.asUInt,
     Cat(srcA(len - 1, 0), 0.U(precision.W))
   )
   val add2 = Cat(
     Mux(invAdd, invertSign(srcB), srcB),
     0.U(precision.W)
   )
-  s1.io.a := add1
-  s1.io.b := add2
-  s1.io.b_inter_valid := s1_isFMA
-  s1.io.b_inter_flags := Mux(s1_isFMA,
-    s1_mulProd.inter_flags,
+  s1.io.a := S1Reg(add1)
+  s1.io.b := S1Reg(add2)
+  s1.io.b_inter_valid := S1Reg(isFMA)
+  s1.io.b_inter_flags := S1Reg(Mux(isFMA,
+    fromMul.mulOutput.inter_flags,
     0.U.asTypeOf(s1.io.b_inter_flags)
-  )
+  ))
   s1.io.rm := S1Reg(io.in.bits.rm)
   s2.io.in := S2Reg(s1.io.out)
   ////////////////////////
@@ -112,8 +113,13 @@ class FADDPipe(expWidth: Int, precision: Int) extends FPUPipelineModule(expWidth
 class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   extends FPUSubModule(expWidth, precision) {
 
-  val mulPipe = Module(new FMULPipe(expWidth, precision))
-  val addPipe = Module(new FADDPipe(expWidth, precision))
+  val mulPipe = Module(new FMULPipe(expWidth, precision, hasCtrl))
+  val addPipe = Module(new FADDPipe(expWidth, precision, hasCtrl))
+
+  mulPipe.io.in.bits := io.in.bits
+  mulPipe.io.in.valid := io.in.valid && (FPUOps.isFMA(io.in.bits.op) || FPUOps.isFMUL(io.in.bits.op))
+  addPipe.io.in.bits := io.in.bits
+//  addPipe.io.in.valid := io.in.valid
 
   // 加法器从FMA输入端和乘法器输出端接收数据
   // 乘加和加法同时抵达时，乘加优先级更高: 0->输入来自乘法器输出, 1->输入来自外层输入
@@ -129,8 +135,10 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   toAddArbiter.io.in(0).valid := FPUOps.isFMA(mulPipe.toAdd.op) && mulPipe.io.out.valid
 
   addPipe.io.in.bits.op := toAddArbiter.io.out.bits.op
+  addPipe.fromMul := mulPipe.toAdd
   addPipe.io.in.bits.ctrl.foreach(_ := toAddArbiter.io.out.bits.ctrl.getOrElse(0.U.asTypeOf(new FPUCtrl)))
   toAddArbiter.io.out.ready := addPipe.io.in.ready
+  addPipe.io.in.valid := toAddArbiter.io.out.valid
 
   // 加法为乘加让行的同时也会阻塞FMA输入，确保自己之后能够进入流水线
   // 另一种阻塞FMA输入的情况是乘法器那边卡住了

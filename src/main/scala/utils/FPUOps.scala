@@ -76,6 +76,10 @@ object FPUOps {
     else
       false.B
   }
+
+  def withSUB(op: UInt): Bool = {
+    op(0) === 1.U
+  }
 }
 
 object RoundingModes {
