@@ -28,24 +28,24 @@ class FPUCtrl extends Bundle {
   val wxd = Bool()
 }
 
-class FPUInput(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Bundle {
-  val op = Input(UInt(3.W))
-  val a, b, c = Input(UInt((expWidth + precision).W))
-  val rm = Input(UInt(3.W))
-  val ctrl = if (hasCtrl) Some(Input(new FPUCtrl)) else None
+class FPUInput(len: Int, hasCtrl: Boolean = false) extends Bundle {
+  val op = UInt(3.W)
+  val a, b, c = UInt(len.W)
+  val rm = UInt(3.W)
+  val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
 }
 
-class FPUOutput(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Bundle {
-  val result = Output(UInt((expWidth + precision).W))
-  val fflags = Output(UInt(5.W))
-  val ctrl = if (hasCtrl) Some(Output(new FPUCtrl)) else None
+class FPUOutput(len: Int, hasCtrl: Boolean = false) extends Bundle {
+  val result = UInt(len.W)
+  val fflags = UInt(5.W)
+  val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
 }
 
-abstract class FPUSubModule(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Module
+abstract class FPUSubModule(len: Int, hasCtrl: Boolean = false) extends Module
   with HasUIntToSIntHelper {
   val io = IO(new Bundle {
-    val in = Flipped(DecoupledIO(new FPUInput(expWidth, precision, hasCtrl)))
-    val out = DecoupledIO(new FPUOutput(expWidth, precision, hasCtrl))
+    val in = Flipped(DecoupledIO(Input(new FPUInput(len, hasCtrl))))
+    val out = DecoupledIO(Output(new FPUOutput(len, hasCtrl)))
   })
 
   def invertSign(x: UInt): UInt = {
@@ -53,6 +53,6 @@ abstract class FPUSubModule(expWidth: Int, precision: Int, hasCtrl: Boolean = fa
   }
 }
 
-abstract class FPUPipelineModule(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
-  extends FPUSubModule(expWidth, precision, hasCtrl)
+abstract class FPUPipelineModule(len: Int, hasCtrl: Boolean = false)
+  extends FPUSubModule(len, hasCtrl)
     with HasPipelineReg

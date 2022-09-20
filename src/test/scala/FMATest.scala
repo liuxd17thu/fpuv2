@@ -1,5 +1,6 @@
 package FPUv2
 
+import FPUv2.utils.{FPUCtrl, FPUInput, FPUOutput}
 import FPUv2.utils.FPUOps._
 import FPUv2.utils.RoundingModes._
 import chisel3._
@@ -15,17 +16,27 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
 
   behavior of "FMA"
   it should "FMA Operations" in {
-    test(new FMA(expWidth = 8, precision = 24, hasCtrl = false)).withAnnotations(Seq(WriteVcdAnnotation)) {
+    test(new FMA(expWidth = 8, precision = 24, hasCtrl = true)).withAnnotations(Seq(WriteVcdAnnotation)) {
       d =>
-        def subModuleInput(a: Float, b: Float, c: Float, op: UInt, rm: UInt = RTZ,
-                           hasCtrl: Boolean = false) = {
-          chiselTypeOf(d.io.in.bits).Lit(
-            _.a -> floatToString(a).U,
-            _.b -> floatToString(b).U,
-            _.c -> floatToString(c).U,
-            _.op -> op(2, 0),
-            _.rm -> rm
-          )
+        object subModuleInput {
+          var count = 0
+          def apply(a: Float, b: Float, c: Float, op: UInt, rm: UInt = RTZ) = {
+            count = (count + 1) % 32
+            chiselTypeOf(d.io.in.bits).Lit(
+              _.a -> floatToString(a).U,
+              _.b -> floatToString(b).U,
+              _.c -> floatToString(c).U,
+              _.op -> op(2, 0),
+              _.rm -> rm,
+              _.ctrl -> (new FPUCtrl).Lit(
+                _.regIndex -> count.U,
+                _.vecMask -> 0.U,
+                _.warpID -> 0.U,
+                _.wfd -> false.B,
+                _.wxd -> false.B
+              )
+            )
+          }
         }
         d.io.in.initSource()
         d.io.in.setSourceClock(d.clock)

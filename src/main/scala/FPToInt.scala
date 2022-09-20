@@ -1,0 +1,38 @@
+package FPUv2
+
+import chisel3._
+import chisel3.util._
+import FPUv2.utils._
+import FPUv2.utils.FPUOps._
+
+/*class FPToInt_s1(expWidth: Int, precision: Int)
+  extends Module {
+  val io = IO(new Bundle{
+    val in = new FPUInput(expWidth+precision)
+    val out = new Bundle{
+
+    }
+  })
+}*/
+/* TODO:
+*    Support all of these: F2I F2IU F2L F2LU (D2I D2IU D2L D2LU)
+*/
+class FPToInt(hasCtrl: Boolean = false)
+  extends FPUPipelineModule(64, hasCtrl) {
+  override def latency = 2
+
+  val F2ICore = Module(new fudian.FPToInt(8, 24))
+  //val D2ICore = Module(None)
+  val isSingle = S1Reg(doubleConvert(io.in.bits.op))
+  val coreOp = S1Reg(io.in.bits.op(1, 0))
+  val src = S1Reg(io.in.bits.a)
+  val rm = S1Reg(io.in.bits.rm)
+
+  F2ICore.io.op := coreOp
+  F2ICore.io.a := Mux(isSingle, Cat(0.U(32.W), src.tail(32)), 0.U(64.W))
+  F2ICore.io.rm := rm
+
+  io.out.bits.fflags := Mux(S2Reg(isSingle), S2Reg(F2ICore.io.fflags), 0.U(5.W))
+  io.out.bits.result := Mux(S2Reg(isSingle), S2Reg(F2ICore.io.result), 0.U(64.W))
+  io.out.bits.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+}

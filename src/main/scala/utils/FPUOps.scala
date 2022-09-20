@@ -42,13 +42,21 @@ object FPUOps {
 
   def FN_FSGNJX = 20.U(6.W) // 010 100
 
-  def FN_F2I = 24.U(6.W) // 011 000
+  def FN_F2IU = 24.U(6.W) // 011 000
 
-  def FN_F2IU = 25.U(6.W) // 011 001
+  def FN_F2I = 25.U(6.W) // 011 001
 
-  def FN_I2F = 32.U(6.W) // 100 000
+  def FN_F2LU = 26.U(6.W) // 011 010
 
-  def FN_IU2F = 33.U(6.W) // 100 001
+  def FN_F2L = 27.U(6.W) // 011 011
+
+  def FN_IU2F = 32.U(6.W) // 100 000
+
+  def FN_I2F = 33.U(6.W) // 100 001
+
+  def FN_LU2F = 34.U(6.W) // 100 010
+
+  def FN_L2F = 35.U(6.W) // 100 011
 
   def isADDSUB(op: UInt): Bool = {
     if (op.getWidth == 3)
@@ -80,6 +88,21 @@ object FPUOps {
   def withSUB(op: UInt): Bool = {
     op(0) === 1.U
   }
+
+  def withInvProd(op: UInt): Bool = {
+    if (op.getWidth == 3)
+      op === FN_FNMADD(2, 0) || op === FN_FNMSUB
+    else if (op.getWidth == 6)
+      op === FN_FNMADD || op === FN_FNMSUB
+    else
+      false.B
+  }
+
+  def signedConvert(op: UInt): Bool = op(0).asBool
+
+  def longConvert(op: UInt): Bool = op(1).asBool
+
+  def doubleConvert(op: UInt): Bool = op(2).asBool
 }
 
 object RoundingModes {
