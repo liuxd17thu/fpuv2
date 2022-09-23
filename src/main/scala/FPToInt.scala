@@ -5,17 +5,7 @@ import chisel3.util._
 import FPUv2.utils._
 import FPUv2.utils.FPUOps._
 
-/*class FPToInt_s1(expWidth: Int, precision: Int)
-  extends Module {
-  val io = IO(new Bundle{
-    val in = new FPUInput(expWidth+precision)
-    val out = new Bundle{
-
-    }
-  })
-}*/
 /* TODO:
-*    Support all of these: F2I F2IU F2L F2LU (D2I D2IU D2L D2LU)
 */
 class FPToInt(hasCtrl: Boolean = false)
   extends FPUPipelineModule(64, hasCtrl) {
@@ -23,7 +13,7 @@ class FPToInt(hasCtrl: Boolean = false)
 
   val F2ICore = Module(new fudian.FPToInt(8, 24))
   //val D2ICore = Module(None)
-  val isSingle = S1Reg(doubleConvert(io.in.bits.op))
+  val isSingle = S1Reg(!doubleConvert(io.in.bits.op))
   val coreOp = S1Reg(io.in.bits.op(1, 0))
   val src = S1Reg(io.in.bits.a)
   val rm = S1Reg(io.in.bits.rm)

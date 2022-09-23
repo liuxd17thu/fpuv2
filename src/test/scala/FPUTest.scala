@@ -9,18 +9,18 @@ import chisel3.experimental.BundleLiterals._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 
-class FMATest extends AnyFlatSpec with ChiselScalatestTester {
+class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
   import TestArgs._
-  object subModuleInput { d: FPUInput =>
+  object FPUModuleInput { d: FPUInput =>
     var count = 0
     def reset = { count = 0 }
     def apply(a: AnyVal, b: AnyVal, c: AnyVal, op: UInt, rm: UInt = RTZ) = {
       count = (count + 1) % 32
-      (new FPUInput(32, true)).Lit(
+      (new FPUInput(32, true, true)).Lit(
         _.a -> toUInt(a).U,
         _.b -> toUInt(b).U,
         _.c -> toUInt(c).U,
-        _.op -> op(2,0),
+        _.op -> op,
         _.rm -> rm,
         _.ctrl -> (new FPUCtrl).Lit(
           _.regIndex -> count.U,
@@ -32,11 +32,10 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
       )
     }
   }
-
-  behavior of "FMA"
-  it should "FMA Operations" in {
-    test(new FMA(expWidth, precision, hasCtrl = true)).withAnnotations(Seq(WriteVcdAnnotation)) { d =>
-      subModuleInput.reset
+  behavior of "FPU"
+  it should "FPU Operations" in {
+    test(new ScalarFPU(expWidth, precision, true)).withAnnotations(Seq(WriteVcdAnnotation)) { d =>
+      FPUModuleInput.reset
       d.io.in.initSource()
       d.io.in.setSourceClock(d.clock)
       d.io.out.initSink()
@@ -45,12 +44,12 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
       d.io.out.ready.poke(true.B)
       fork{
         d.io.in.enqueueSeq(Seq(
-          subModuleInput(1.0f, 10.0f, 1.0f, FN_FMADD),
-          subModuleInput(2.0f, 10.0f, 0, FN_FMUL),
-          subModuleInput(3.0f, 10.0f, 3.0f, FN_FMADD),
-          subModuleInput(4.0f, 10.0f, 4.0f, FN_FMADD),
-          subModuleInput(5.0f, 0.0f, 0, FN_FADD),
-          subModuleInput(6.0f, 10.0f, 6.0f, FN_FMADD)//,
+          FPUModuleInput(1.0f, 10.0f, 1.0f, FN_FMADD),
+          FPUModuleInput(20, 0, 0, FN_I2F),
+          FPUModuleInput(3.0f, 37.0f, 0, FN_FADD),
+          FPUModuleInput(4.0f, 10.0f, 0, FN_FLT),
+          FPUModuleInput(5.0f, 0.0f, 0, FN_F2I),
+          FPUModuleInput(6.0f, 10.0f, 0, FN_FCLASS)//,
           //subModuleInput(77.0f, 0, 0, FN_F2I),
           //subModuleInput(88, 0, 0, FN_I2F)
         ))

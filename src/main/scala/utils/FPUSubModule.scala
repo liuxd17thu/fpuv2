@@ -28,8 +28,8 @@ class FPUCtrl extends Bundle {
   val wxd = Bool()
 }
 
-class FPUInput(len: Int, hasCtrl: Boolean = false) extends Bundle {
-  val op = UInt(3.W)
+class FPUInput(len: Int, hasCtrl: Boolean = false, topInput: Boolean = false) extends Bundle {
+  val op = if(topInput) UInt(6.W) else UInt(3.W)
   val a, b, c = UInt(len.W)
   val rm = UInt(3.W)
   val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
