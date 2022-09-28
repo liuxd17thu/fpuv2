@@ -1,6 +1,6 @@
 package FPUv2
 
-import FPUv2.utils.{FPUCtrl, FPUInput, FPUOutput, FPUSubModule}
+import FPUv2.utils.{FPUCtrl, FPUInput, vecFPUInput}
 import FPUv2.utils.FPUOps._
 import FPUv2.utils.RoundingModes._
 import chisel3._
@@ -57,6 +57,18 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
         d.io.out.ready.poke(true.B)
       }.join()
       d.clock.step(10)
+    }
+  }
+
+  behavior of "VectorFPU"
+  it should "Split and Gather" in {
+    test(new VectorFPU(expWidth, precision, 9, 3)).withAnnotations(Seq(WriteVcdAnnotation)){ d =>
+      var count = 0
+      def vecInput(a: AnyVal, b: AnyVal, c: AnyVal, op: UInt, mask: UInt){
+        new vecFPUInput(9, 32).Lit(
+
+        )
+      }
     }
   }
 }

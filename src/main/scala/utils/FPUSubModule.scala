@@ -20,7 +20,7 @@ trait HasUIntToSIntHelper {
   }
 }
 
-class FPUCtrl extends Bundle {
+class FPUCtrl() extends Bundle {
   val regIndex = UInt(5.W)
   val warpID = UInt(depth_warp.W)
   val vecMask = UInt(num_thread.W)
@@ -33,6 +33,11 @@ class FPUInput(len: Int, hasCtrl: Boolean = false, topInput: Boolean = false) ex
   val a, b, c = UInt(len.W)
   val rm = UInt(3.W)
   val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
+}
+
+class vecFPUInput(softThread: Int, len: Int) extends Bundle {
+  val data = Vec(softThread, new FPUInput(len, false))
+  val ctrl = new FPUCtrl
 }
 
 class FPUOutput(len: Int, hasCtrl: Boolean = false) extends Bundle {
