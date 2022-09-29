@@ -4,7 +4,6 @@ import FPUv2.utils.{FPUCtrl, FPUInput, vecFPUInput}
 import FPUv2.utils.FPUOps._
 import FPUv2.utils.RoundingModes._
 import chisel3._
-import chisel3.util._
 import chisel3.experimental.BundleLiterals._
 import chisel3.experimental.VecLiterals.AddVecLiteralConstructor
 import chiseltest._

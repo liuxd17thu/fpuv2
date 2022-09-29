@@ -1,5 +1,6 @@
 import mill._
 import scalalib._
+import scalafmt._
 // support BSP
 // input build.sc from each repositories.
 import $file.`fudian`.build
@@ -26,7 +27,8 @@ object ivys {
   val chiselCirct = ivy"com.sifive::chisel-circt:0.4.0"
 }
 
-object fpuv2 extends SbtModule with ScalaModule {
+object fpuv2 extends SbtModule with ScalaModule with ScalafmtModule {
+  override def millSourcePath = os.pwd
   override def scalaVersion = ivys.sv
 
   override def ivyDeps = Agg(
