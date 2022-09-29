@@ -26,7 +26,7 @@ object ivys {
   val chiselCirct = ivy"com.sifive::chisel-circt:0.4.0"
 }
 
-object fpuv2 extends SbtModule {
+object fpuv2 extends SbtModule with ScalaModule {
   override def scalaVersion = ivys.sv
 
   override def ivyDeps = Agg(
