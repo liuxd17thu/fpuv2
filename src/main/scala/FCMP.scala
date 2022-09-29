@@ -37,7 +37,7 @@ class FCMP(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
       FN_MIN -> min
     ))
   )
-  io.out.bits.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+  io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)) )
   io.out.bits.result := S2Reg(result)
   io.out.bits.fflags := S2Reg(fflags)
 }

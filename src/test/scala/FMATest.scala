@@ -22,7 +22,7 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
         _.c -> toUInt(c).U,
         _.op -> op(2,0),
         _.rm -> rm,
-        _.ctrl -> (new FPUCtrl).Lit(
+        _.ctrl.get -> (new FPUCtrl).Lit(
           _.regIndex -> count.U,
           _.vecMask -> 0.U,
           _.warpID-> 0.U,

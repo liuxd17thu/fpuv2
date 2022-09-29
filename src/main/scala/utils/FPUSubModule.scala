@@ -8,7 +8,8 @@ import chisel3.util._
 // comment these when using in GPGPU
 object parameters {
   val depth_warp = 4
-  val num_thread = 8
+  val softThread = 12
+  val hardThread = 4
 }
 
 import parameters._
@@ -20,10 +21,10 @@ trait HasUIntToSIntHelper {
   }
 }
 
-class FPUCtrl() extends Bundle {
+class FPUCtrl(valid: Boolean = true) extends Bundle {
   val regIndex = UInt(5.W)
   val warpID = UInt(depth_warp.W)
-  val vecMask = UInt(num_thread.W)
+  val vecMask = UInt(softThread.W)
   val wfd = Bool()
   val wxd = Bool()
 }
@@ -32,18 +33,20 @@ class FPUInput(len: Int, hasCtrl: Boolean = false, topInput: Boolean = false) ex
   val op = if(topInput) UInt(6.W) else UInt(3.W)
   val a, b, c = UInt(len.W)
   val rm = UInt(3.W)
-  val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
+  //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
+  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
 }
 
 class vecFPUInput(softThread: Int, len: Int) extends Bundle {
-  val data = Vec(softThread, new FPUInput(len, false))
+  val data = Vec(softThread, new FPUInput(len, false, true))
   val ctrl = new FPUCtrl
 }
 
 class FPUOutput(len: Int, hasCtrl: Boolean = false) extends Bundle {
   val result = UInt(len.W)
   val fflags = UInt(5.W)
-  val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
+  //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
+  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
 }
 
 abstract class FPUSubModule(len: Int, hasCtrl: Boolean = false) extends Module

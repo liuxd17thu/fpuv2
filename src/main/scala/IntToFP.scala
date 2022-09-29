@@ -31,5 +31,5 @@ class IntToFP(hasCtrl: Boolean = false)
 
   io.out.bits.result := Mux(s2_isSingle, S2Reg(I2FCore._2.io.result), 0.U(64.W))
   io.out.bits.fflags := Mux(s2_isSingle, S2Reg(I2FCore._2.io.fflags), 0.U(5.W))
-  io.out.bits.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+  io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)) )
 }

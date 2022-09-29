@@ -1,6 +1,7 @@
 package FPUv2
 
 import FPUv2.utils._
+import chisel3.experimental.dataview.BundleUpcastable
 import chisel3.{VecInit, _}
 import chisel3.util._
 
@@ -26,8 +27,8 @@ class ScalarFPU(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends
     module.io.in.bits.a := Mux(idx.U===fu, io.in.bits.a, 0.U(len.W))
     module.io.in.bits.b := Mux(idx.U===fu, io.in.bits.b, 0.U(len.W))
     module.io.in.bits.c := Mux(idx.U===fu, io.in.bits.c, 0.U(len.W))
-    module.io.in.bits.ctrl := Mux(idx.U===fu, io.in.bits.ctrl, 0.U.asTypeOf(new FPUCtrl))
-    module.io.in.valid := idx.U===fu
+    module.io.in.bits.ctrl.foreach( _ := Mux(idx.U===fu, io.in.bits.ctrl.get, 0.U.asTypeOf(new FPUCtrl)) )
+    module.io.in.valid := idx.U===fu && io.in.valid
   }
   io.in.ready := MuxLookup(fu, false.B,
     subModules.zipWithIndex.map{ case (module, idx) =>
@@ -49,30 +50,26 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
 
   val len = expWidth + precision
   val io = IO(new Bundle {
-    val in = Flipped(DecoupledIO(new vecFPUInput(hardThread, len)))
+    val in = Flipped(DecoupledIO(new vecFPUInput(softThread, len)))
     val out = DecoupledIO(new Bundle {
-      val data = Vec(hardThread, new FPUOutput(64, false))
+      val data = Vec(softThread, new FPUOutput(64, false))
       val ctrl = new FPUCtrl
     })
   })
 
-  val FPUArray = Range(0, hardThread).map{ i =>
-    Module(new ScalarFPU(expWidth, precision, i==0))
-  }
+  val FPUArray = Seq(Module(new ScalarFPU(expWidth, precision, true))) ++
+                  Seq.fill(hardThread-1)(Module(new ScalarFPU(expWidth, precision, false)))
 
   if(softThread == hardThread){
     io.in.ready := FPUArray(0).io.in.ready
     FPUArray.zipWithIndex.foreach{ case (x, i) =>
       x.io.in.valid := io.in.valid
       x.io.in.bits := io.in.bits.data(i)
-      if(i == 0)
-        x.io.in.bits.ctrl := io.in.bits.ctrl
-//      else
-//        x.io.in.bits.ctrl := DontCare
+      x.io.in.bits.ctrl.foreach( _ := io.in.bits.ctrl )
     }
 
     io.out.valid := FPUArray(0).io.out.valid
-    io.out.bits.ctrl := FPUArray(0).io.out.bits.ctrl
+    io.out.bits.ctrl := FPUArray(0).io.out.bits.ctrl.get
     FPUArray.zipWithIndex.foreach{ case (fpu, i) =>
       fpu.io.out.ready := io.out.ready
       io.out.bits.data(i) := fpu.io.in.bits
@@ -81,9 +78,9 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
   else {
     //================ Result Sending ========
     val maxIter = softThread / hardThread
-    val maskSlice = (1<<hardThread-1).U(softThread.W)
-    val inReg = RegInit(VecInit.fill(softThread)(new FPUInput(len, false, true)))
-    val inCtrlReg = RegInit(new FPUCtrl)
+    //val maskSlice = (1<<hardThread-1).U(softThread.W)
+    val inReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUInput(len, false, true))))
+    val inCtrlReg = RegInit(0.U.asTypeOf(new FPUCtrl))
 
     //val sendCS = RegInit(0.U(log2Ceil(maxIter+1).W))
     val sendNS = WireInit(0.U(log2Ceil(maxIter+1).W))
@@ -120,36 +117,40 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
       }
       is(1.U){
         when(io.in.fire){
-          (inReg zip io.in.bits.data).map { x => x._1 := x._2 }
+          (inReg zip io.in.bits.data).foreach { x => x._1 := x._2 }
           inCtrlReg := io.in.bits.ctrl
         }.otherwise{}
       }
-      is((2 until maxIter).map(_.U)){
+      is((2 to maxIter).map(_.U)){
         when(FPUArray(0).io.in.fire){
-          (0 until maxIter).foreach{
+          (0 until softThread).foreach{
             i => inReg(i) := {
-              if (i + hardThread < maxIter)
+              if (i + hardThread < softThread)
                 inReg(i + hardThread)
               else
                 0.U.asTypeOf(inReg(i))
             }
           }
-        }.otherwise{}
+        }.otherwise{
+
+        }
       }
     }
     // process #3B
-    (0 until hardThread).foreach{ i =>
+    FPUArray(0).io.in.bits.viewAsSupertype(new FPUInput(len, false, true)) := inReg(0)
+    FPUArray(0).io.in.bits.ctrl.foreach( _ := inCtrlReg)
+    FPUArray(0).io.in.valid := sendCS =/= 0.U
+    (1 until hardThread).foreach{ i =>
       FPUArray(i).io.in.bits := inReg(i)
-      FPUArray(0).io.in.bits.ctrl := inCtrlReg
       FPUArray(i).io.in.valid := sendCS =/= 0.U
     }
-
+    io.in.ready := sendCS===0.U || sendCS===maxIter.U && FPUArray(0).io.in.ready
     //=============== Result Collecting ===================
     //val recvCS = RegInit(0.U(log2Ceil(maxIter+1).W))
     val recvNS = WireInit(0.U(log2Ceil(maxIter+1).W))
     val recvCS = RegNext(recvNS)
-    val outReg = RegInit(VecInit.fill(softThread)(new FPUOutput(len, false)))
-    val outCtrlReg = RegInit(new FPUCtrl)
+    val outReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUOutput(len, false))))
+    val outCtrlReg = RegInit(0.U.asTypeOf(new FPUCtrl))
 
     switch(recvCS){
       is(maxIter.U){
@@ -175,23 +176,25 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
       }
       is((1 to maxIter).map(_.U)){
         when(FPUArray(0).io.out.fire){
-          (0 until maxIter).foreach{ i =>
+          (0 until softThread).foreach{ i =>
             outReg(i) := {
-              if(i+hardThread<maxIter)
-                outReg(i + maxIter)
+              if(i+hardThread<softThread)
+                outReg(i + hardThread)
               else
-                FPUArray(i+hardThread-maxIter).io.out.bits
+                FPUArray(i+hardThread-softThread).io.out.bits
             }
           }
-          outCtrlReg := Mux(recvNS===1.U, FPUArray(0).io.out.bits.ctrl, outCtrlReg)
+          outCtrlReg := Mux(recvNS===1.U, FPUArray(0).io.out.bits.ctrl.get, outCtrlReg)
         }.otherwise{}
       }
     }
     io.out.valid := recvCS === maxIter.U
-    io.out.bits.ctrl := FPUArray(0).io.out.bits.ctrl
-    (io.out.bits.data zip FPUArray).foreach{ case (data, fpu) =>
-      data := fpu.io.out.bits
-      fpu.io.out.ready := io.out.ready
-    }
+    io.out.bits.ctrl := outCtrlReg
+//    (io.out.bits.data zip FPUArray).foreach{ case (data, fpu) =>
+//      data := fpu.io.out.bits
+//      fpu.io.out.ready := io.out.ready
+//    }
+    (io.out.bits.data zip outReg).foreach{ case(data, reg) => data := reg }
+    FPUArray.foreach( _.io.out.ready := io.out.ready || recvCS =/= maxIter.U)
   }
 }

@@ -43,5 +43,5 @@ class FPMV(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   val classifyOut = classify(a, expWidth, precision)
   io.out.bits.result := S2Reg(Mux(s1_op === FN_FCLASS(2, 0), classifyOut, a))
   io.out.bits.fflags := 0.U(5.W)
-  io.out.bits.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+  io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)))
 }

@@ -24,5 +24,5 @@ class FPToInt(hasCtrl: Boolean = false)
 
   io.out.bits.fflags := Mux(S2Reg(isSingle), S2Reg(F2ICore.io.fflags), 0.U(5.W))
   io.out.bits.result := Mux(S2Reg(isSingle), S2Reg(F2ICore.io.result), 0.U(64.W))
-  io.out.bits.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+  io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)))
 }

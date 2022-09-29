@@ -24,7 +24,8 @@ class MulToAddIO(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extend
   val mulOutput = new FMULToFADD(expWidth, precision)
   val addAnother = UInt((expWidth + precision).W)
   val op = UInt(3.W)
-  val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
+  //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
+  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
 }
 
 class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
@@ -56,13 +57,14 @@ class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   multiplier.io.b := raw_b.sig
   multiplier.io.regEnables(0) := regEnable(1)
 
-  toAdd.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+  toAdd.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)))
   toAdd.addAnother := S2Reg(S1Reg(io.in.bits.c))
   toAdd.mulOutput := s3.io.to_fadd
   toAdd.op := S2Reg(S1Reg(io.in.bits.op))
   io.out.bits.result := s3.io.result
   io.out.bits.fflags := s3.io.fflags
-  io.out.bits.ctrl := toAdd.ctrl
+  //io.out.bits.ctrl := toAdd.ctrl
+  io.out.bits.ctrl.foreach( _ := toAdd.ctrl.get)
 }
 
 class FADDPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
@@ -105,7 +107,7 @@ class FADDPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
 
   io.out.bits.result := s2.io.result
   io.out.bits.fflags := s2.io.fflags
-  io.out.bits.ctrl := S2Reg(S1Reg(io.in.bits.ctrl))
+  io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)))
 }
 
 class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
@@ -123,12 +125,13 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   // 乘加和加法同时抵达时，乘加优先级更高: 0->输入来自乘法器输出, 1->输入来自外层输入
   val toAddArbiter = Module(new Arbiter(new Bundle {
     val op = UInt(3.W)
-    val ctrl = if (hasCtrl) new FPUCtrl else UInt(0.W)
+    //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
+    val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
   }, 2))
   toAddArbiter.io.in(1).bits.op := io.in.bits.op.tail(3)
-  toAddArbiter.io.in(1).bits.ctrl := io.in.bits.ctrl
+  toAddArbiter.io.in(1).bits.ctrl.foreach( _ := io.in.bits.ctrl.get )
   toAddArbiter.io.in(0).bits.op := mulPipe.toAdd.op
-  toAddArbiter.io.in(0).bits.ctrl := mulPipe.toAdd.ctrl
+  toAddArbiter.io.in(0).bits.ctrl.foreach( _ := mulPipe.toAdd.ctrl.get )
   toAddArbiter.io.in(1).valid := FPUOps.isADDSUB(io.in.bits.op) && io.in.valid
   toAddArbiter.io.in(0).valid := FPUOps.isFMA(mulPipe.toAdd.op) && mulPipe.io.out.valid
 
@@ -137,7 +140,7 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
 
   toAddArbiter.io.out.ready := addPipe.io.in.ready
   addPipe.io.in.valid := toAddArbiter.io.out.valid
-  addPipe.io.in.bits.ctrl := toAddArbiter.io.out.bits.ctrl
+  addPipe.io.in.bits.ctrl.foreach( _ := toAddArbiter.io.out.bits.ctrl.get )
 
   // 加法为乘加让行的同时也会阻塞FMA输入，确保自己之后能够进入流水线
   // 另一种阻塞FMA输入的情况是乘法器那边卡住了
