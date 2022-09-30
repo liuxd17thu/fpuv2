@@ -25,7 +25,7 @@ class FPUCtrl(valid: Boolean = true) extends Bundle {
   val regIndex = UInt(5.W)
   val warpID = UInt(depth_warp.W)
   val vecMask = UInt(softThread.W)
-  val wfd = Bool()
+  val wvd = Bool()
   val wxd = Bool()
 }
 

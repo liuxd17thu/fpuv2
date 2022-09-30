@@ -26,7 +26,7 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
           _.regIndex -> count.U,
           _.vecMask -> 0.U,
           _.warpID-> 0.U,
-          _.wfd -> false.B,
+          _.wvd -> false.B,
           _.wxd -> false.B
         )
       )

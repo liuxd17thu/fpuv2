@@ -28,7 +28,7 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
           _.regIndex -> count.U,
           _.vecMask -> 0.U,
           _.warpID -> 0.U,
-          _.wfd -> false.B,
+          _.wvd -> false.B,
           _.wxd -> false.B
         )
       )
@@ -41,7 +41,7 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
     def apply(a: Array[AnyVal], b: Array[AnyVal], c: Array[AnyVal], op: UInt, mask: BigInt = defaultMask): vecFPUInput = {
       count = (count + 1) % 32
       (new vecFPUInput(softThread, len)).Lit(
-        _.data -> Vec(softThread, new FPUInput(len, false, true)).Lit( (0 until softThread).map{ i =>
+        _.data -> Vec(softThread, new FPUInput(len, false, true)).Lit((0 until softThread).map { i =>
           i -> new FPUInput(len, false, true).Lit(
             _.a -> toUInt(a(i)).U,
             _.b -> toUInt(b(i)).U,
@@ -54,7 +54,7 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
           _.regIndex -> count.U,
           _.vecMask -> mask.U,
           _.warpID -> 0.U,
-          _.wfd -> false.B,
+          _.wvd -> false.B,
           _.wxd -> false.B
         )
       )
