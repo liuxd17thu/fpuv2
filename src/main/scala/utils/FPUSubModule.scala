@@ -21,20 +21,43 @@ trait HasUIntToSIntHelper {
   }
 }
 
-class FPUCtrl(valid: Boolean = true) extends Bundle {
-  val regIndex = UInt(5.W)
-  val warpID = UInt(depth_warp.W)
-  val vecMask = UInt(softThread.W)
-  val wvd = Bool()
-  val wxd = Bool()
+abstract class FPUCtrl extends Bundle{}
+class emptyFPUCtrl extends FPUCtrl{
+
+}
+object emptyFPUCtrl{
+  def apply() = new emptyFPUCtrl
 }
 
-class FPUInput(len: Int, hasCtrl: Boolean = false, topInput: Boolean = false) extends Bundle {
+class testFPUCtrl extends FPUCtrl {
+  new Bundle {
+    val regIndex = UInt(5.W)
+    val warpID = UInt(depth_warp.W)
+    val vecMask = UInt(softThread.W)
+    val wvd = Bool()
+    val wxd = Bool()
+  }
+}
+object testFPUCtrl{
+  def apply() = new testFPUCtrl
+}
+
+object FPUCtrlFac{
+  def apply[T<:FPUCtrl](proto: T): Option[T] = {
+    proto match {
+      case proto:emptyFPUCtrl => None
+      case _ => Some(proto)
+    }
+  }
+}
+
+
+class FPUInput(len: Int, hasCtrl: Option[FPUCtrl], topInput: Boolean = false) extends Bundle {
   val op = if(topInput) UInt(6.W) else UInt(3.W)
   val a, b, c = UInt(len.W)
   val rm = UInt(3.W)
   //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
-  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
+  val ctrl = if
 }
 
 class vecFPUInput(softThread: Int, len: Int) extends Bundle {
