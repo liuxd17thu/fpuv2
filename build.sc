@@ -28,7 +28,7 @@ object ivys {
 }
 
 object fpuv2 extends SbtModule with ScalaModule with ScalafmtModule {
-  override def millSourcePath = os.pwd
+  override def millSourcePath = millOuterCtx.millSourcePath
   override def scalaVersion = ivys.sv
 
   override def ivyDeps = Agg(
