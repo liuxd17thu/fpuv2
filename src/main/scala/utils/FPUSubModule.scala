@@ -21,62 +21,56 @@ trait HasUIntToSIntHelper {
   }
 }
 
-abstract class FPUCtrl extends Bundle{}
-class emptyFPUCtrl extends FPUCtrl{
-
+class emptyFPUCtrl extends Bundle{
+  val empty = UInt(0.W)
 }
-object emptyFPUCtrl{
+object emptyFPUCtrl {
   def apply() = new emptyFPUCtrl
 }
 
-class testFPUCtrl extends FPUCtrl {
-  new Bundle {
-    val regIndex = UInt(5.W)
-    val warpID = UInt(depth_warp.W)
-    val vecMask = UInt(softThread.W)
-    val wvd = Bool()
-    val wxd = Bool()
-  }
-}
-object testFPUCtrl{
-  def apply() = new testFPUCtrl
+class testFPUCtrl extends Bundle {
+  val regIndex = UInt(5.W)
+  val warpID = UInt(depth_warp.W)
+  val vecMask = UInt(softThread.W)
+  val wvd = Bool()
+  val wxd = Bool()
 }
 
 object FPUCtrlFac{
-  def apply[T<:FPUCtrl](proto: T): Option[T] = {
-    proto match {
-      case proto:emptyFPUCtrl => None
-      case _ => Some(proto)
+  def apply[T<:Data](gen: T): Option[T] = {
+    gen match {
+      case _:emptyFPUCtrl => None
+      case _ => Some(gen)
     }
   }
 }
 
 
-class FPUInput(len: Int, hasCtrl: Option[FPUCtrl], topInput: Boolean = false) extends Bundle {
+class FPUInput(len: Int, ctrlGen: Data = emptyFPUCtrl(), topInput: Boolean = false) extends Bundle {
   val op = if(topInput) UInt(6.W) else UInt(3.W)
   val a, b, c = UInt(len.W)
   val rm = UInt(3.W)
   //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
-  val ctrl = if
+  val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-class vecFPUInput(softThread: Int, len: Int) extends Bundle {
-  val data = Vec(softThread, new FPUInput(len, false, true))
-  val ctrl = new FPUCtrl
+class vecFPUInput(softThread: Int, len: Int, ctrlGen: Data = new testFPUCtrl) extends Bundle {
+  val data = Vec(softThread, new FPUInput(len, emptyFPUCtrl(), true))
+  val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-class FPUOutput(len: Int, hasCtrl: Boolean = false) extends Bundle {
+class FPUOutput(len: Int, ctrlGen: Data = emptyFPUCtrl()) extends Bundle {
   val result = UInt(len.W)
   val fflags = UInt(5.W)
   //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
-  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
+  val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-abstract class FPUSubModule(len: Int, hasCtrl: Boolean = false) extends Module
+abstract class FPUSubModule(len: Int, ctrlGen: Data = emptyFPUCtrl()) extends Module
   with HasUIntToSIntHelper {
   val io = IO(new Bundle {
-    val in = Flipped(DecoupledIO(Input(new FPUInput(len, hasCtrl))))
-    val out = DecoupledIO(Output(new FPUOutput(len, hasCtrl)))
+    val in = Flipped(DecoupledIO(Input(new FPUInput(len, ctrlGen))))
+    val out = DecoupledIO(Output(new FPUOutput(len, ctrlGen)))
   })
 
   def invertSign(x: UInt): UInt = {
@@ -84,6 +78,6 @@ abstract class FPUSubModule(len: Int, hasCtrl: Boolean = false) extends Module
   }
 }
 
-abstract class FPUPipelineModule(len: Int, hasCtrl: Boolean = false)
-  extends FPUSubModule(len, hasCtrl)
+abstract class FPUPipelineModule(len: Int, ctrlGen: Data = emptyFPUCtrl())
+  extends FPUSubModule(len, ctrlGen)
     with HasPipelineReg

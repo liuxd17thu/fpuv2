@@ -6,8 +6,8 @@ import fudian._
 import FPUv2.utils._
 import FPUv2.utils.FPUOps._
 
-class FPMV(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
-  extends FPUPipelineModule(expWidth + precision, hasCtrl) {
+class FPMV(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+  extends FPUPipelineModule(expWidth + precision, ctrlGen) {
   override def latency = 2
 
   val op = io.in.bits.op

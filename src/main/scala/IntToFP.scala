@@ -6,8 +6,8 @@ import fudian._
 import FPUv2.utils._
 import FPUv2.utils.FPUOps._
 
-class IntToFP(hasCtrl: Boolean = false)
-  extends FPUPipelineModule(64, hasCtrl) {
+class IntToFP(ctrlGen: Data = emptyFPUCtrl())
+  extends FPUPipelineModule(64, ctrlGen) {
   override def latency = 2
 
   val isSingle = !doubleConvert(io.in.bits.op)

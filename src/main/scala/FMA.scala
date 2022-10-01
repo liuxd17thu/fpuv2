@@ -20,19 +20,19 @@ class NaiveMultiplier(len: Int, pipeAt: Seq[Int]) extends Module {
   io.carry := 0.U
 }
 
-class MulToAddIO(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Bundle {
+class MulToAddIO(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) extends Bundle {
   val mulOutput = new FMULToFADD(expWidth, precision)
   val addAnother = UInt((expWidth + precision).W)
   val op = UInt(3.W)
   //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
-  val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
+  val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
-  extends FPUPipelineModule(expWidth + precision, hasCtrl) {
+class FMULPipe(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+  extends FPUPipelineModule(expWidth + precision, ctrlGen) {
   override def latency: Int = 2
 
-  val toAdd = IO(Output(new MulToAddIO(expWidth, precision, hasCtrl)))
+  val toAdd = IO(Output(new MulToAddIO(expWidth, precision, ctrlGen)))
 
   //val multiplier = Module(new Multiplier(precision + 1, pipeAt = Seq(1)))
   val multiplier = Module(new NaiveMultiplier(precision + 1, pipeAt = Seq(1)))
@@ -67,13 +67,13 @@ class FMULPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   io.out.bits.ctrl.foreach( _ := toAdd.ctrl.get)
 }
 
-class FADDPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
-  extends FPUPipelineModule(expWidth + precision, hasCtrl) {
+class FADDPipe(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+  extends FPUPipelineModule(expWidth + precision, ctrlGen) {
   override def latency: Int = 2
 
   val len = expWidth + precision
 
-  val fromMul = IO(Input(new MulToAddIO(expWidth, precision, hasCtrl)))
+  val fromMul = IO(Input(new MulToAddIO(expWidth, precision, ctrlGen)))
 
   val s1 = Module(new FCMA_ADD_s1(expWidth, 2 * precision, precision))
   val s2 = Module(new FCMA_ADD_s2(expWidth, precision))
@@ -110,11 +110,11 @@ class FADDPipe(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)))
 }
 
-class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
-  extends FPUSubModule(expWidth + precision, hasCtrl) {
+class FMA(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+  extends FPUSubModule(expWidth + precision, ctrlGen) {
 
-  val mulPipe = Module(new FMULPipe(expWidth, precision, hasCtrl))
-  val addPipe = Module(new FADDPipe(expWidth, precision, hasCtrl))
+  val mulPipe = Module(new FMULPipe(expWidth, precision, ctrlGen))
+  val addPipe = Module(new FADDPipe(expWidth, precision, ctrlGen))
 
   mulPipe.io.in.bits := io.in.bits
   mulPipe.io.in.valid := io.in.valid && (FPUOps.isFMA(io.in.bits.op) || FPUOps.isFMUL(io.in.bits.op))
@@ -126,7 +126,7 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   val toAddArbiter = Module(new Arbiter(new Bundle {
     val op = UInt(3.W)
     //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
-    val ctrl = if(hasCtrl) Some(new FPUCtrl) else None
+    val ctrl = FPUCtrlFac(ctrlGen)
   }, 2))
   toAddArbiter.io.in(1).bits.op := io.in.bits.op.tail(3)
   toAddArbiter.io.in(1).bits.ctrl.foreach( _ := io.in.bits.ctrl.get )
@@ -145,8 +145,8 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
   // 加法为乘加让行的同时也会阻塞FMA输入，确保自己之后能够进入流水线
   // 另一种阻塞FMA输入的情况是乘法器那边卡住了
   io.in.ready := mulPipe.io.in.ready && !(toAddArbiter.io.in(1).valid && !toAddArbiter.io.in(1).ready)
-  val mulFIFO = Module(new Queue(new FPUOutput(expWidth + precision, hasCtrl), entries = 1, pipe = true))
-  val addFIFO = Module(new Queue(new FPUOutput(expWidth + precision, hasCtrl), entries = 1, pipe = true))
+  val mulFIFO = Module(new Queue(new FPUOutput(expWidth + precision, ctrlGen), entries = 1, pipe = true))
+  val addFIFO = Module(new Queue(new FPUOutput(expWidth + precision, ctrlGen), entries = 1, pipe = true))
   mulFIFO.io.enq.bits := mulPipe.io.out.bits
   mulFIFO.io.enq.valid := mulPipe.io.out.valid && FPUOps.isFMUL(mulPipe.toAdd.op)
   addFIFO.io.enq <> addPipe.io.out
@@ -155,7 +155,7 @@ class FMA(expWidth: Int, precision: Int, hasCtrl: Boolean = false)
     (mulFIFO.io.enq.ready && FPUOps.isFMUL(mulPipe.toAdd.op))
 
   // FMA输出端从乘法输出端和加法输出端接收数据，加法(乘加)优先级更高
-  val toOutArbiter = Module(new Arbiter(new FPUOutput(expWidth + precision, hasCtrl), 2))
+  val toOutArbiter = Module(new Arbiter(new FPUOutput(expWidth + precision, ctrlGen), 2))
   toOutArbiter.io.in(0) <> addFIFO.io.deq
   toOutArbiter.io.in(1) <> mulFIFO.io.deq
   io.out <> toOutArbiter.io.out

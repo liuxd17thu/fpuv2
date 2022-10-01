@@ -7,8 +7,8 @@ import FPUv2.utils.FPUOps._
 
 /* TODO:
 */
-class FPToInt(hasCtrl: Boolean = false)
-  extends FPUPipelineModule(64, hasCtrl) {
+class FPToInt(ctrlGen: Data = emptyFPUCtrl())
+  extends FPUPipelineModule(64, ctrlGen) {
   override def latency = 2
 
   val F2ICore = Module(new fudian.FPToInt(8, 24))

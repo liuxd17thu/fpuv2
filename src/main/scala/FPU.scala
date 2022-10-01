@@ -5,19 +5,19 @@ import chisel3.experimental.dataview.BundleUpcastable
 import chisel3.{VecInit, _}
 import chisel3.util._
 
-class ScalarFPU(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends Module {
+class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) extends Module {
   val len = expWidth + precision
   val io = IO(new Bundle {
-    val in = Flipped(DecoupledIO(new FPUInput(len, hasCtrl, true)))
-    val out = DecoupledIO(new FPUOutput(64, hasCtrl))
+    val in = Flipped(DecoupledIO(new FPUInput(len, ctrlGen, true)))
+    val out = DecoupledIO(new FPUOutput(64, ctrlGen))
     val select = Output(UInt(3.W))
   })
   val subModules = Array[FPUSubModule](
-    Module(new FMA(expWidth, precision, hasCtrl)),
-    Module(new FCMP(expWidth, precision, hasCtrl)),
-    Module(new FPMV(expWidth, precision, hasCtrl)),
-    Module(new FPToInt(hasCtrl)),
-    Module(new IntToFP(hasCtrl))
+    Module(new FMA(expWidth, precision, ctrlGen)),
+    Module(new FCMP(expWidth, precision, ctrlGen)),
+    Module(new FPMV(expWidth, precision, ctrlGen)),
+    Module(new FPToInt(ctrlGen)),
+    Module(new IntToFP(ctrlGen))
   )
 
   val fu = io.in.bits.op.head(3)
@@ -36,7 +36,7 @@ class ScalarFPU(expWidth: Int, precision: Int, hasCtrl: Boolean = false) extends
     }
   )
 
-  val outArbiter = Module(new Arbiter(new FPUOutput(64, hasCtrl), 5))
+  val outArbiter = Module(new Arbiter(new FPUOutput(64, ctrlGen), 5))
   subModules.zipWithIndex.foreach{ case (module, idx) =>
     outArbiter.io.in(idx) <> module.io.out
   }
