@@ -27,7 +27,7 @@ class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) e
     module.io.in.bits.a := Mux(idx.U===fu, io.in.bits.a, 0.U(len.W))
     module.io.in.bits.b := Mux(idx.U===fu, io.in.bits.b, 0.U(len.W))
     module.io.in.bits.c := Mux(idx.U===fu, io.in.bits.c, 0.U(len.W))
-    module.io.in.bits.ctrl.foreach( _ := Mux(idx.U===fu, io.in.bits.ctrl.get, 0.U.asTypeOf(new FPUCtrl)) )
+    module.io.in.bits.ctrl.foreach( _ := Mux(idx.U===fu, io.in.bits.ctrl.get, 0.U.asTypeOf(io.in.bits.ctrl.get)) )
     module.io.in.valid := idx.U===fu && io.in.valid
   }
   io.in.ready := MuxLookup(fu, false.B,
@@ -44,7 +44,7 @@ class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) e
   io.select := outArbiter.io.chosen
 }
 
-class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread: Int = 32) extends Module {
+class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread: Int = 32, ctrlGen: Data) extends Module {
   assert(softThread % hardThread == 0)
   assert(softThread>2 && hardThread>1)
 
@@ -52,13 +52,13 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(new vecFPUInput(softThread, len)))
     val out = DecoupledIO(new Bundle {
-      val data = Vec(softThread, new FPUOutput(64, false))
-      val ctrl = new FPUCtrl
+      val data = Vec(softThread, new FPUOutput(64, emptyFPUCtrl()))
+      val ctrl = ctrlGen
     })
   })
 
-  val FPUArray = Seq(Module(new ScalarFPU(expWidth, precision, true))) ++
-                  Seq.fill(hardThread-1)(Module(new ScalarFPU(expWidth, precision, false)))
+  val FPUArray = Seq(Module(new ScalarFPU(expWidth, precision, ctrlGen))) ++
+                  Seq.fill(hardThread-1)(Module(new ScalarFPU(expWidth, precision, emptyFPUCtrl())))
 
   if(softThread == hardThread){
     io.in.ready := FPUArray(0).io.in.ready
@@ -79,8 +79,8 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     //================ Result Sending ========
     val maxIter = softThread / hardThread
     //val maskSlice = (1<<hardThread-1).U(softThread.W)
-    val inReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUInput(len, false, true))))
-    val inCtrlReg = RegInit(0.U.asTypeOf(new FPUCtrl))
+    val inReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUInput(len, emptyFPUCtrl(), true))))
+    val inCtrlReg = RegInit(0.U.asTypeOf(ctrlGen))
 
     //val sendCS = RegInit(0.U(log2Ceil(maxIter+1).W))
     val sendNS = WireInit(0.U(log2Ceil(maxIter+1).W))
@@ -113,7 +113,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     switch(sendNS){
       is(0.U){
         inReg.foreach{ _ := 0.U.asTypeOf(inReg(0))}
-        inCtrlReg := 0.U.asTypeOf(new FPUCtrl)
+        inCtrlReg := 0.U.asTypeOf(ctrlGen)
       }
       is(1.U){
         when(io.in.fire){
@@ -137,7 +137,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
       }
     }
     // process #3B
-    FPUArray(0).io.in.bits.viewAsSupertype(new FPUInput(len, false, true)) := inReg(0)
+    FPUArray(0).io.in.bits.viewAsSupertype(new FPUInput(len, emptyFPUCtrl(), true)) := inReg(0)
     FPUArray(0).io.in.bits.ctrl.foreach( _ := inCtrlReg)
     FPUArray(0).io.in.valid := sendCS =/= 0.U
     (1 until hardThread).foreach{ i =>
@@ -149,8 +149,8 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     //val recvCS = RegInit(0.U(log2Ceil(maxIter+1).W))
     val recvNS = WireInit(0.U(log2Ceil(maxIter+1).W))
     val recvCS = RegNext(recvNS)
-    val outReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUOutput(len, false))))
-    val outCtrlReg = RegInit(0.U.asTypeOf(new FPUCtrl))
+    val outReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUOutput(len, emptyFPUCtrl()))))
+    val outCtrlReg = RegInit(0.U.asTypeOf(ctrlGen))
 
     switch(recvCS){
       is(maxIter.U){

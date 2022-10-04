@@ -56,7 +56,7 @@ class FPUInput(len: Int, ctrlGen: Data = emptyFPUCtrl(), topInput: Boolean = fal
 
 class vecFPUInput(softThread: Int, len: Int, ctrlGen: Data = new testFPUCtrl) extends Bundle {
   val data = Vec(softThread, new FPUInput(len, emptyFPUCtrl(), true))
-  val ctrl = FPUCtrlFac(ctrlGen)
+  val ctrl = ctrlGen
 }
 
 class FPUOutput(len: Int, ctrlGen: Data = emptyFPUCtrl()) extends Bundle {
