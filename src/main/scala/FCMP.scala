@@ -6,7 +6,7 @@ import fudian._
 import FPUv2.utils._
 import FPUv2.utils.FPUOps._
 
-class FCMP(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+class FCMP(expWidth: Int, precision: Int, ctrlGen: Data = new EmptyFPUCtrl)
   extends FPUPipelineModule(expWidth + precision, ctrlGen) {
   override def latency = 2
 

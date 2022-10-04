@@ -7,7 +7,7 @@ import FPUv2.utils.FPUOps._
 
 /* TODO:
 */
-class FPToInt(ctrlGen: Data = emptyFPUCtrl())
+class FPToInt(ctrlGen: Data = EmptyFPUCtrl())
   extends FPUPipelineModule(64, ctrlGen) {
   override def latency = 2
 

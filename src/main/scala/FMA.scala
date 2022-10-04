@@ -20,7 +20,7 @@ class NaiveMultiplier(len: Int, pipeAt: Seq[Int]) extends Module {
   io.carry := 0.U
 }
 
-class MulToAddIO(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) extends Bundle {
+class MulToAddIO(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl()) extends Bundle {
   val mulOutput = new FMULToFADD(expWidth, precision)
   val addAnother = UInt((expWidth + precision).W)
   val op = UInt(3.W)
@@ -28,7 +28,7 @@ class MulToAddIO(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) 
   val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-class FMULPipe(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+class FMULPipe(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
   extends FPUPipelineModule(expWidth + precision, ctrlGen) {
   override def latency: Int = 2
 
@@ -67,7 +67,7 @@ class FMULPipe(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
   io.out.bits.ctrl.foreach( _ := toAdd.ctrl.get)
 }
 
-class FADDPipe(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+class FADDPipe(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
   extends FPUPipelineModule(expWidth + precision, ctrlGen) {
   override def latency: Int = 2
 
@@ -110,7 +110,7 @@ class FADDPipe(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
   io.out.bits.ctrl.foreach( _ := S2Reg(S1Reg(io.in.bits.ctrl.get)))
 }
 
-class FMA(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
+class FMA(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
   extends FPUSubModule(expWidth + precision, ctrlGen) {
 
   val mulPipe = Module(new FMULPipe(expWidth, precision, ctrlGen))
@@ -123,11 +123,13 @@ class FMA(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl())
 
   // 加法器从FMA输入端和乘法器输出端接收数据
   // 乘加和加法同时抵达时，乘加优先级更高: 0->输入来自乘法器输出, 1->输入来自外层输入
-  val toAddArbiter = Module(new Arbiter(new Bundle {
+  val ArbiterIO = new Bundle {
     val op = UInt(3.W)
     //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
-    val ctrl = FPUCtrlFac(ctrlGen)
-  }, 2))
+    val ctrl = FPUCtrlFac(ctrlGen.cloneType)
+  }
+
+  val toAddArbiter = Module(new Arbiter(ArbiterIO, 2))
   toAddArbiter.io.in(1).bits.op := io.in.bits.op.tail(3)
   toAddArbiter.io.in(1).bits.ctrl.foreach( _ := io.in.bits.ctrl.get )
   toAddArbiter.io.in(0).bits.op := mulPipe.toAdd.op

@@ -5,7 +5,7 @@ import chisel3.experimental.dataview.BundleUpcastable
 import chisel3.{VecInit, _}
 import chisel3.util._
 
-class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) extends Module {
+class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl()) extends Module {
   val len = expWidth + precision
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(new FPUInput(len, ctrlGen, true)))
@@ -44,7 +44,8 @@ class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = emptyFPUCtrl()) e
   io.select := outArbiter.io.chosen
 }
 
-class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread: Int = 32, ctrlGen: Data) extends Module {
+class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread: Int = 32, ctrlGen: Data = new TestFPUCtrl)
+  extends Module {
   assert(softThread % hardThread == 0)
   assert(softThread>2 && hardThread>1)
 
@@ -52,13 +53,13 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(new vecFPUInput(softThread, len)))
     val out = DecoupledIO(new Bundle {
-      val data = Vec(softThread, new FPUOutput(64, emptyFPUCtrl()))
-      val ctrl = ctrlGen
+      val data = Vec(softThread, new FPUOutput(64, EmptyFPUCtrl()))
+      val ctrl = ctrlGen.cloneType
     })
   })
 
   val FPUArray = Seq(Module(new ScalarFPU(expWidth, precision, ctrlGen))) ++
-                  Seq.fill(hardThread-1)(Module(new ScalarFPU(expWidth, precision, emptyFPUCtrl())))
+                  Seq.fill(hardThread-1)(Module(new ScalarFPU(expWidth, precision, EmptyFPUCtrl())))
 
   if(softThread == hardThread){
     io.in.ready := FPUArray(0).io.in.ready
@@ -79,7 +80,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     //================ Result Sending ========
     val maxIter = softThread / hardThread
     //val maskSlice = (1<<hardThread-1).U(softThread.W)
-    val inReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUInput(len, emptyFPUCtrl(), true))))
+    val inReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUInput(len, EmptyFPUCtrl(), true))))
     val inCtrlReg = RegInit(0.U.asTypeOf(ctrlGen))
 
     //val sendCS = RegInit(0.U(log2Ceil(maxIter+1).W))
@@ -137,7 +138,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
       }
     }
     // process #3B
-    FPUArray(0).io.in.bits.viewAsSupertype(new FPUInput(len, emptyFPUCtrl(), true)) := inReg(0)
+    FPUArray(0).io.in.bits.viewAsSupertype(new FPUInput(len, EmptyFPUCtrl(), true)) := inReg(0)
     FPUArray(0).io.in.bits.ctrl.foreach( _ := inCtrlReg)
     FPUArray(0).io.in.valid := sendCS =/= 0.U
     (1 until hardThread).foreach{ i =>
@@ -149,7 +150,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     //val recvCS = RegInit(0.U(log2Ceil(maxIter+1).W))
     val recvNS = WireInit(0.U(log2Ceil(maxIter+1).W))
     val recvCS = RegNext(recvNS)
-    val outReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUOutput(len, emptyFPUCtrl()))))
+    val outReg = RegInit(VecInit.fill(softThread)(0.U.asTypeOf(new FPUOutput(len, EmptyFPUCtrl()))))
     val outCtrlReg = RegInit(0.U.asTypeOf(ctrlGen))
 
     switch(recvCS){

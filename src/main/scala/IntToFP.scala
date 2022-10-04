@@ -6,7 +6,7 @@ import fudian._
 import FPUv2.utils._
 import FPUv2.utils.FPUOps._
 
-class IntToFP(ctrlGen: Data = emptyFPUCtrl())
+class IntToFP(ctrlGen: Data = EmptyFPUCtrl())
   extends FPUPipelineModule(64, ctrlGen) {
   override def latency = 2
 

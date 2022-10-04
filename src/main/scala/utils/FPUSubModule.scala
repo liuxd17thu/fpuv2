@@ -21,14 +21,14 @@ trait HasUIntToSIntHelper {
   }
 }
 
-class emptyFPUCtrl extends Bundle{
+class EmptyFPUCtrl extends Bundle{
   val empty = UInt(0.W)
 }
-object emptyFPUCtrl {
-  def apply() = new emptyFPUCtrl
+object EmptyFPUCtrl {
+  def apply() = new EmptyFPUCtrl
 }
 
-class testFPUCtrl extends Bundle {
+class TestFPUCtrl extends Bundle {
   val regIndex = UInt(5.W)
   val warpID = UInt(depth_warp.W)
   val vecMask = UInt(softThread.W)
@@ -39,14 +39,14 @@ class testFPUCtrl extends Bundle {
 object FPUCtrlFac{
   def apply[T<:Data](gen: T): Option[T] = {
     gen match {
-      case _:emptyFPUCtrl => None
-      case _ => Some(gen)
+      case _:EmptyFPUCtrl => None
+      case _ => Some(gen.cloneType)
     }
   }
 }
 
 
-class FPUInput(len: Int, ctrlGen: Data = emptyFPUCtrl(), topInput: Boolean = false) extends Bundle {
+class FPUInput(len: Int, ctrlGen: Data = EmptyFPUCtrl(), topInput: Boolean = false) extends Bundle {
   val op = if(topInput) UInt(6.W) else UInt(3.W)
   val a, b, c = UInt(len.W)
   val rm = UInt(3.W)
@@ -54,19 +54,19 @@ class FPUInput(len: Int, ctrlGen: Data = emptyFPUCtrl(), topInput: Boolean = fal
   val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-class vecFPUInput(softThread: Int, len: Int, ctrlGen: Data = new testFPUCtrl) extends Bundle {
-  val data = Vec(softThread, new FPUInput(len, emptyFPUCtrl(), true))
-  val ctrl = ctrlGen
+class vecFPUInput(softThread: Int, len: Int, ctrlGen: Data = new TestFPUCtrl) extends Bundle {
+  val data = Vec(softThread, new FPUInput(len, EmptyFPUCtrl(), true))
+  val ctrl = ctrlGen.cloneType
 }
 
-class FPUOutput(len: Int, ctrlGen: Data = emptyFPUCtrl()) extends Bundle {
+class FPUOutput(len: Int, ctrlGen: Data = EmptyFPUCtrl()) extends Bundle {
   val result = UInt(len.W)
   val fflags = UInt(5.W)
   //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
   val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-abstract class FPUSubModule(len: Int, ctrlGen: Data = emptyFPUCtrl()) extends Module
+abstract class FPUSubModule(len: Int, ctrlGen: Data = EmptyFPUCtrl()) extends Module
   with HasUIntToSIntHelper {
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(Input(new FPUInput(len, ctrlGen))))
@@ -78,6 +78,6 @@ abstract class FPUSubModule(len: Int, ctrlGen: Data = emptyFPUCtrl()) extends Mo
   }
 }
 
-abstract class FPUPipelineModule(len: Int, ctrlGen: Data = emptyFPUCtrl())
+abstract class FPUPipelineModule(len: Int, ctrlGen: Data = EmptyFPUCtrl())
   extends FPUSubModule(len, ctrlGen)
     with HasPipelineReg
