@@ -44,14 +44,14 @@ class ScalarFPU(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl()) e
   io.select := outArbiter.io.chosen
 }
 
-class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread: Int = 32, ctrlGen: Data = new TestFPUCtrl)
+class VectorFPU[T <: TestFPUCtrl](expWidth: Int, precision: Int, softThread: Int = 32, hardThread: Int = 32, ctrlGen:T)
   extends Module {
   assert(softThread % hardThread == 0)
   assert(softThread>2 && hardThread>1)
 
   val len = expWidth + precision
   val io = IO(new Bundle {
-    val in = Flipped(DecoupledIO(new vecFPUInput(softThread, len)))
+    val in = Flipped(DecoupledIO(new vecFPUInput(softThread, len, ctrlGen)))
     val out = DecoupledIO(new Bundle {
       val data = Vec(softThread, new FPUOutput(64, EmptyFPUCtrl()))
       val ctrl = ctrlGen.cloneType
@@ -65,7 +65,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     io.in.ready := FPUArray(0).io.in.ready
     FPUArray.zipWithIndex.foreach{ case (x, i) =>
       x.io.in.valid := io.in.valid
-      x.io.in.bits := io.in.bits.data(i)
+      x.io.in.bits.viewAsSupertype(new FPUInput(len, EmptyFPUCtrl(), true)) := io.in.bits.data(i)
       x.io.in.bits.ctrl.foreach( _ := io.in.bits.ctrl )
     }
 
@@ -73,7 +73,7 @@ class VectorFPU(expWidth: Int, precision: Int, softThread: Int = 32, hardThread:
     io.out.bits.ctrl := FPUArray(0).io.out.bits.ctrl.get
     FPUArray.zipWithIndex.foreach{ case (fpu, i) =>
       fpu.io.out.ready := io.out.ready
-      io.out.bits.data(i) := fpu.io.in.bits
+      io.out.bits.data(i).viewAsSupertype(new FPUOutput(64, EmptyFPUCtrl())) := fpu.io.out.bits
     }
   }
   else {

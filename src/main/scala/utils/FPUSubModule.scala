@@ -6,13 +6,12 @@ import chisel3.util._
 // import parameters._
 
 // comment these when using in GPGPU
-object parameters {
-  val depth_warp = 4
-  val softThread = 12
-  val hardThread = 4
-}
+//object parameters {
+//  val depth_warp = 4
+//  val softThread = 12
+//  val hardThread = 4
+//}
 
-import parameters._
 // end
 
 trait HasUIntToSIntHelper {
@@ -28,7 +27,7 @@ object EmptyFPUCtrl {
   def apply() = new EmptyFPUCtrl
 }
 
-class TestFPUCtrl extends Bundle {
+class TestFPUCtrl(depth_warp: Int, softThread: Int) extends Bundle {
   val regIndex = UInt(5.W)
   val warpID = UInt(depth_warp.W)
   val vecMask = UInt(softThread.W)
@@ -54,7 +53,7 @@ class FPUInput(len: Int, ctrlGen: Data = EmptyFPUCtrl(), topInput: Boolean = fal
   val ctrl = FPUCtrlFac(ctrlGen)
 }
 
-class vecFPUInput(softThread: Int, len: Int, ctrlGen: Data = new TestFPUCtrl) extends Bundle {
+class vecFPUInput[T<: TestFPUCtrl](softThread: Int, len: Int, ctrlGen: T) extends Bundle {
   val data = Vec(softThread, new FPUInput(len, EmptyFPUCtrl(), true))
   val ctrl = ctrlGen.cloneType
 }

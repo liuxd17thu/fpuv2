@@ -8,8 +8,14 @@ import chisel3.experimental.BundleLiterals._
 import chisel3.experimental.VecLiterals.AddVecLiteralConstructor
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
-import FPUv2.utils.parameters._
+import FPUv2.utils.TestFPUCtrl
 
+object Parameters{
+  val depthWarp: Int = 4
+  val hardThread: Int = 4
+  val softThread: Int = 12
+}
+import FPUv2.Parameters._
 class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
   import TestArgs._
 
@@ -18,13 +24,13 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
     def reset = { count = 0 }
     def apply(a: AnyVal, b: AnyVal, c: AnyVal, op: UInt, rm: UInt = RTZ): FPUInput = {
       count = (count + 1) % 32
-      (new FPUInput(32, new TestFPUCtrl, true)).Lit(
+      (new FPUInput(32, new TestFPUCtrl(depthWarp, softThread), true)).Lit(
         _.a -> toUInt(a).U,
         _.b -> toUInt(b).U,
         _.c -> toUInt(c).U,
         _.op -> op,
         _.rm -> rm,
-        _.ctrl.get -> (new TestFPUCtrl).Lit(
+        _.ctrl.get -> (new TestFPUCtrl(depthWarp, softThread)).Lit(
           _.regIndex -> count.U,
           _.vecMask -> 0.U,
           _.warpID -> 0.U,
@@ -34,13 +40,13 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
       )
     }
   }
-  object vecFPUModuleInput { d: vecFPUInput =>
+  object vecFPUModuleInput { d: vecFPUInput[TestFPUCtrl] =>
     var count = 0
     val defaultMask = 1<<softThread - 1
     def reset = { count = 0 }
-    def apply(a: Array[AnyVal], b: Array[AnyVal], c: Array[AnyVal], op: UInt, mask: BigInt = defaultMask): vecFPUInput = {
+    def apply(a: Array[AnyVal], b: Array[AnyVal], c: Array[AnyVal], op: UInt, mask: BigInt = defaultMask): vecFPUInput[TestFPUCtrl] = {
       count = (count + 1) % 32
-      (new vecFPUInput(softThread, len)).Lit(
+      (new vecFPUInput(softThread, len, new TestFPUCtrl(depthWarp, softThread))).Lit(
         _.data -> Vec(softThread, new FPUInput(len, EmptyFPUCtrl(), true)).Lit((0 until softThread).map { i =>
           i -> new FPUInput(len, EmptyFPUCtrl(), true).Lit(
             _.a -> toUInt(a(i)).U,
@@ -50,7 +56,7 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
             _.rm -> RTZ
           )
         }:_*),
-        _.ctrl -> (new TestFPUCtrl).Lit(
+        _.ctrl -> (new TestFPUCtrl(depthWarp, softThread)).Lit(
           _.regIndex -> count.U,
           _.vecMask -> mask.U,
           _.warpID -> 0.U,
@@ -63,7 +69,7 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
 
   behavior of "FPU"
   it should "FPU Operations" in {
-    test(new ScalarFPU(expWidth, precision, new TestFPUCtrl)).withAnnotations(Seq(WriteVcdAnnotation)) { d =>
+    test(new ScalarFPU(expWidth, precision, new TestFPUCtrl(depthWarp, softThread))).withAnnotations(Seq(WriteVcdAnnotation)) { d =>
       FPUModuleInput.reset
       d.io.in.initSource()
       d.io.in.setSourceClock(d.clock)
@@ -91,7 +97,7 @@ class FPUTest extends AnyFlatSpec with ChiselScalatestTester {
 
   behavior of "VectorFPU"
   it should "Split and Gather" in {
-    test(new VectorFPU(expWidth, precision, softThread, hardThread, new TestFPUCtrl)).withAnnotations(Seq(WriteVcdAnnotation)){ d =>
+    test(new VectorFPU(expWidth, precision, softThread, hardThread, new TestFPUCtrl(depthWarp, softThread))).withAnnotations(Seq(WriteVcdAnnotation)){ d =>
       vecFPUModuleInput.reset
       d.io.in.initSource()
       d.io.in.setSourceClock(d.clock)
