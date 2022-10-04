@@ -8,6 +8,7 @@ import chisel3.util._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
+import Parameters._
 
 class FMATest extends AnyFlatSpec with ChiselScalatestTester {
   import TestArgs._
@@ -16,13 +17,13 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
     def reset = { count = 0 }
     def apply(a: AnyVal, b: AnyVal, c: AnyVal, op: UInt, rm: UInt = RTZ) = {
       count = (count + 1) % 32
-      (new FPUInput(32, new TestFPUCtrl)).Lit(
+      (new FPUInput(32, new TestFPUCtrl(depthWarp, softThread))).Lit(
         _.a -> toUInt(a).U,
         _.b -> toUInt(b).U,
         _.c -> toUInt(c).U,
         _.op -> op(2,0),
         _.rm -> rm,
-        _.ctrl.get -> (new TestFPUCtrl).Lit(
+        _.ctrl.get -> (new TestFPUCtrl(depthWarp, softThread)).Lit(
           _.regIndex -> count.U,
           _.vecMask -> 0.U,
           _.warpID-> 0.U,
@@ -35,7 +36,7 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
 
   behavior of "FMA"
   it should "FMA Operations" in {
-    test(new FMA(expWidth, precision, new TestFPUCtrl)).withAnnotations(Seq(WriteVcdAnnotation)) { d =>
+    test(new FMA(expWidth, precision, new TestFPUCtrl(depthWarp, softThread))).withAnnotations(Seq(WriteVcdAnnotation)) { d =>
       subModuleInput.reset
       d.io.in.initSource()
       d.io.in.setSourceClock(d.clock)
