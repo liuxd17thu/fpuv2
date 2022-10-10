@@ -47,11 +47,12 @@ class FMATest extends AnyFlatSpec with ChiselScalatestTester {
       fork{
         d.io.in.enqueueSeq(Seq(
           subModuleInput(1.0f, 10.0f, 1.0f, FN_FMADD),
-          subModuleInput(2.0f, 10.0f, 0, FN_FMUL),
-          subModuleInput(3.0f, 10.0f, 3.0f, FN_FMADD),
-          subModuleInput(4.0f, 10.0f, 4.0f, FN_FMADD),
-          subModuleInput(5.0f, 0.0f, 0, FN_FADD),
-          subModuleInput(6.0f, 10.0f, 6.0f, FN_FMADD)//,
+          subModuleInput(2.0f, 10.0f, 2.0f, FN_FMADD),
+          subModuleInput(3.0f, 10.0f, 3.0f, FN_FMUL),
+          subModuleInput(4.0f, 10.0f, 4.0f, FN_FMUL),
+          subModuleInput(5.0f, 10.0f, 0, FN_FMADD),
+          subModuleInput(6.0f, 0.0f, 6.0f, FN_FADD),
+          subModuleInput(7.0f, 0.0f, 6.0f, FN_FADD)//,
           //subModuleInput(77.0f, 0, 0, FN_F2I),
           //subModuleInput(88, 0, 0, FN_I2F)
         ))
