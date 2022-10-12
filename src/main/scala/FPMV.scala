@@ -11,7 +11,7 @@ class FPMV(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
   override def latency = 2
 
   val op = io.in.bits.op
-  val resSign = MuxLookup(op, io.in.bits.a, Seq(
+  val resSign = MuxLookup(op, io.in.bits.a.head(1), Seq(
     FN_FSGNJ(2, 0) -> io.in.bits.b.head(1),
     FN_FSGNJN(2, 0) -> !io.in.bits.b.head(1),
     FN_FSGNJX(2, 0) -> (io.in.bits.a.head(1) ^ io.in.bits.b.head(1))
