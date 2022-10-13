@@ -19,7 +19,7 @@ class FPToInt(ctrlGen: Data = EmptyFPUCtrl())
   val rm = S1Reg(io.in.bits.rm)
 
   F2ICore.io.op := coreOp
-  F2ICore.io.a := Mux(isSingle, Cat(0.U(32.W), src.tail(32)), 0.U(64.W))
+  F2ICore.io.a := Mux(isSingle, src(31, 0), 0.U(32.W))
   F2ICore.io.rm := rm
 
   io.out.bits.fflags := Mux(S2Reg(isSingle), S2Reg(F2ICore.io.fflags), 0.U(5.W))
