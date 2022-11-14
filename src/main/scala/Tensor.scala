@@ -206,7 +206,7 @@ class TensorCoreFP32(vl: Int, DimM: Int, DimN: Int, DimK:Int, tcCtrl: TCCtrl) ex
     for(k <- 0 until DimK){
       for(n <- 0 until DimN){
         TCArray(m * DimK + k).io.in.bits.a(n) := io.in.bits.data(m * DimN + n).a
-        TCArray(m * DimK + k).io.in.bits.b(n) := io.in.bits.data(n * DimK + k).b
+        TCArray(m * DimK + k).io.in.bits.b(n) := io.in.bits.data(k * DimN + n).b
         TCArray(m * DimK + k).io.in.bits.c := io.in.bits.data(m * DimK + k).c
       }
       TCArray(m * DimK + k).io.in.bits.rm := io.in.bits.data(0).rm
