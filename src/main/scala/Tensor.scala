@@ -202,6 +202,13 @@ class TensorCoreFP32(vl: Int, DimM: Int, DimN: Int, DimK:Int, tcCtrl: TCCtrl) ex
   val TCArray = Seq(Module(new TCDotProduct(DimN, 8, 24, tcCtrl))) ++
     Seq.fill(DimM*DimK-1)(Module(new TCDotProduct(DimN, 8, 24)))
 
+  for (i <- 0 until vl) {
+    io.out.bits.data(i).result := 0.U
+    io.out.bits.data(i).fflags := 0.U
+  }
+  io.in.ready := TCArray.head.io.in.ready
+  io.out.valid := TCArray.head.io.out.valid
+
   for(m <- 0 until DimM){
     for(k <- 0 until DimK){
       for(n <- 0 until DimN){
@@ -211,10 +218,12 @@ class TensorCoreFP32(vl: Int, DimM: Int, DimN: Int, DimK:Int, tcCtrl: TCCtrl) ex
       }
       TCArray(m * DimK + k).io.in.bits.rm := io.in.bits.data(0).rm
       TCArray(m * DimK + k).io.in.bits.ctrl.foreach(_ := io.in.bits.ctrl)
+      TCArray(m * DimK + k).io.in.valid := io.in.valid
+      TCArray(m * DimK + k).io.out.ready := io.out.ready
 
       io.out.bits.data(m * DimK + k).result := TCArray(m * DimK + k).io.out.bits.result
       io.out.bits.data(m * DimK + k).fflags := TCArray(m * DimK + k).io.out.bits.fflags
     }
   }
-  io.out.bits.ctrl := TCArray(0).io.out.bits.ctrl.get
+  io.out.bits.ctrl := TCArray.head.io.out.bits.ctrl.get
 }
