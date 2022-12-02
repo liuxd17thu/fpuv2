@@ -1,4 +1,4 @@
 [submodule "fudian"]
 	path = fudian
-	url = https://github.com/OpenXiangShan/fudian.git
+	url = https://github.com/liuxd17thu/fudian.git
 	branch = pipeline
