@@ -130,7 +130,7 @@ class FMA(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
 
   val toAddArbiter = Module(new Arbiter(new ArbiterIO, 2))
   val toAddArbiterFIFO = Seq.fill(2)(Module(new Queue(new ArbiterIO, entries = 1, pipe = true)))
-  toAddArbiterFIFO(1).io.enq.bits.op := io.in.bits.op.tail(3)
+  toAddArbiterFIFO(1).io.enq.bits.op := io.in.bits.op(2,0)
   toAddArbiterFIFO(1).io.enq.bits.ctrl.foreach( _ := io.in.bits.ctrl.get )
   toAddArbiterFIFO(0).io.enq.bits.op := mulPipe.toAdd.op
   toAddArbiterFIFO(0).io.enq.bits.ctrl.foreach( _ := mulPipe.toAdd.ctrl.get )
@@ -151,7 +151,7 @@ class FMA(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
   mulToAddFIFO.io.enq.bits := mulPipe.toAdd
   mulToAddFIFO.io.enq.valid := toAddArbiterFIFO(0).io.enq.fire
   addPipe.fromMul := mulToAddFIFO.io.deq.bits
-  mulToAddFIFO.io.deq.ready := toAddArbiter.io.in(0).fire
+  mulToAddFIFO.io.deq.ready := toAddArbiter.io.in(0).ready
   //addPipe.fromMul := RegNext(mulPipe.toAdd, ArbiterInQueue(0).io.enq.fire)
 
   toAddArbiter.io.out.ready := addPipe.io.in.ready
