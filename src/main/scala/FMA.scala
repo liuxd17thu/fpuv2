@@ -24,6 +24,7 @@ class MulToAddIO(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl()) 
   val mulOutput = new FMULToFADD(expWidth, precision)
   val addAnother = UInt((expWidth + precision).W)
   val op = UInt(3.W)
+  val rm = UInt(3.W)
   //val ctrl = if (hasCtrl) new FPUCtrl else new FPUCtrl(false)
   val ctrl = FPUCtrlFac(ctrlGen)
 }
@@ -61,6 +62,7 @@ class FMULPipe(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
   toAdd.addAnother := S2Reg(S1Reg(io.in.bits.c))
   toAdd.mulOutput := s3.io.to_fadd
   toAdd.op := S2Reg(S1Reg(io.in.bits.op))
+  toAdd.rm := S2Reg(S1Reg(io.in.bits.rm))
   io.out.bits.result := s3.io.result
   io.out.bits.fflags := s3.io.fflags
   //io.out.bits.ctrl := toAdd.ctrl
@@ -102,7 +104,7 @@ class FADDPipe(expWidth: Int, precision: Int, ctrlGen: Data = EmptyFPUCtrl())
     fromMul.mulOutput.inter_flags,
     0.U.asTypeOf(s1.io.b_inter_flags)
   )
-  s1.io.rm := io.in.bits.rm
+  s1.io.rm := Mux(isFMA, fromMul.rm, io.in.bits.rm)
   s2.io.in := S1Reg(s1.io.out)
 
   io.out.bits.result := s2.io.result
